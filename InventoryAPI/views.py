@@ -10,9 +10,46 @@ class ProductList(generics.ListCreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        if serializer.is_valid():
+            quantity_in_stock = serializer.validated_data.get('quantity_in_stock')
+            name = serializer.validated_data.get('name')
+            product = Product.objects.filter(name=name).first()
+
+            if product:
+                product.quantity_in_stock += quantity_in_stock
+                product.save()
+                return Response(ProductSerializer(product).data, status=status.HTTP_200_OK)
+            else:
+                # Create a new product if it does not exist
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+
 class SingleProductList(generics.RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
+
+    def update(self, request, *args, **kwargs):
+        """
+        Handle PUT or PATCH requests to update the product's details.
+        """
+        partial = kwargs.pop('partial', False)  # Check if the request is PATCH
+        instance = self.get_object()  # Retrieve the specific product instance
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        # Update the quantity_in_stock if provided
+        if 'quantity_in_stock' in serializer.validated_data:
+            additional_quantity = serializer.validated_data['quantity_in_stock']
+            instance.quantity_in_stock += additional_quantity
+            
+        for attr, value in serializer.validated_data.items():
+            if attr != 'quantity_in_stock':  # Don't update quantity_in_stock again
+                setattr(instance, attr, value)
+        instance.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 class InventoryList(generics.ListCreateAPIView):
     queryset = InventoryTransaction.objects.all()
@@ -38,6 +75,9 @@ class OrderItemList(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         order_id = kwargs['order_id']
         order = Order.objects.get(id=order_id)
+
+        order.items.all().delete()
+
         product_id = int(request.data.get('product_id'))
         quantity = int(request.data.get('quantity'))
 
@@ -70,4 +110,3 @@ class SingleOrderItemList(generics.RetrieveUpdateDestroyAPIView):
 # class SingleStockAlert(generics.RetrieveUpdateDestroyAPIView):
 #     queryset = StockAlert.objects.all()
 #     serializer_class = StockAlertSerializer
-

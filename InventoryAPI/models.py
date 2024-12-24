@@ -6,7 +6,7 @@ from phonenumber_field.modelfields import PhoneNumberField
 class Product(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
-    quantity_in_stock = models.PositiveIntegerField()
+    quantity_in_stock = models.PositiveIntegerField(default=0)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     threshold_level = models.PositiveIntegerField(default=5)
     date_added = models.DateTimeField(auto_now_add=True)
